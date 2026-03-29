@@ -22,8 +22,8 @@ import userRouter from "./routes/user.routes.js"
 
 //routes decleration
 
-app.use("api/v1/users", userRouter)
+app.use("/api/v1/users", userRouter)
 
-// example: http://localhost:8000/api/v1users/register
+// example: http://localhost:8000/api/v1/users/register
 
 export {app}

@@ -28,6 +28,7 @@ console.log("email:",email);
 //Or, A new version of if statement is below
 
 //Validation
+
 if(
     [fullName,email,username,password].some((field)=>
     field?.trim()==="")
@@ -36,7 +37,7 @@ if(
 }
 
 //check if user already exists: from  username, email
-const existedUser = User.findOne({
+const existedUser = await User.findOne({
     $or:[{ username },{ email }]
 })
 
@@ -44,10 +45,12 @@ if (existedUser) {
     throw new ApiError(409,"user with Username or email existed")
 }
 
-//    check for images and avatar
+//  check for images and avatar
 
 const avatarLocalPath = req.files?.avatar[0]?.path;
-const coverImageLocalPath = req.files?.avatar[0]?.path;
+const coverImageLocalPath = req.files?.coverImage[0]?.path;
+
+
 
 if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar File is required")
@@ -73,25 +76,23 @@ const user = await User.create({
     username: username.toLowerCase()
 })
 
-//     remove password and refresh token field from response
+//  remove password and refresh token field from response
 
-
-const createdUser = await user.findById(user._id).select(
+const createdUser = await User.findById(user._id).select(
     "-password -refreshToken"
 )
 
-//     check for user creation 
+//   check for user creation 
 
 if(!createdUser){
     throw new ApiError(500,"Something went wrong while registerning the user")
 }
 
-//     return response finally
+//   return response finally
 
 return res.status(201).json(
     new ApiResponse(200,createdUser,"User registered succesfully")
 )
-
 
 })
 

@@ -3,7 +3,33 @@ import {ApiError} from "../utils/ApiError.js"
 import {User} from "../models/user.model.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
+import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
+//generate -  access and refresh token
+const generateAccessAndRefereshTokens = async(userId) =>{
+    try {
+        const user = await User.findById(userId)
+    
+        console.log("ACCESS EXPIRY:", process.env.ACCESS_TOKEN_EXPIRY)
+console.log("REFRESH EXPIRY:", process.env.REFRESH_TOKEN_EXPIRY)
+        const accessToken = user.generateAccessToken()
+        const refreshToken = user.generateRefreshToken()
+
+        user.refreshToken = refreshToken
+        await user.save({ validateBeforeSave: false })
+
+        console.log(accessToken);
+        console.log(refreshToken);
+
+        return {accessToken, refreshToken}
+      
+
+    } catch (error) {
+        console.log("JWT ERROR:", error) 
+        throw new ApiError(500, "Something went wrong while generating referesh and access token")
+    }
+}
 
 const registerUser = asyncHandler(async (req,res)=>{
 //    get user details from frontend
@@ -116,10 +142,12 @@ const loginUser = asyncHandler(async (req,res)=>{
 //fetch data from req body -> data
 const {email, username, password} = req.body
 
+//username or email
 if (!(username || email)) {
     throw new ApiError(400, "username or email is required")
 }
 
+//find the user
 const user = await User.findOne({
     $or : [{username},{email}]
 })
@@ -128,7 +156,7 @@ if(!user){
     throw new ApiError(404,"User does not exist")
 }
 
-
+//password check
 const isPasswordValid = await user.isPasswordCorrect(password)
 
    if (!isPasswordValid) {

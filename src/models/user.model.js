@@ -1,6 +1,7 @@
 import mongoose,{Schema} from "mongoose"
 import jwt from "jsonwebtoken"
 import bcrypt from "bcrypt"
+import { ApiError } from "../utils/ApiError.js"
 
 const userSchema = new Schema({
     username:{
@@ -49,9 +50,9 @@ const userSchema = new Schema({
     }
 )
 
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
     if (!this.isModified("password"))
-        return next();
+        return;
     this.password = await bcrypt.hash(this.password, 10)
 })
 
@@ -61,6 +62,9 @@ userSchema.methods.isPasswordCorrect = async function
 }
 
 userSchema.methods.generateAccessToken = function(){
+     if (!process.env.ACCESS_TOKEN_SECRET) {
+        throw new ApiError(404,"ACCESS_TOKEN_SECRET is missing")
+    }
     return jwt.sign(
         {
             _id: this._id,
@@ -87,4 +91,3 @@ userSchema.methods.generateRefreshToken = function (){
 }
 
 export const User = mongoose.model("User", userSchema)
-

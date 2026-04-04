@@ -1,7 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import {ApiError} from "../utils/ApiError.js"
 import {User} from "../models/user.model.js"
-import {uploadOnCloudinary} from "../utils/cloudinary.js"
+import {uploadOnCloudinary, deleteFromCloudinary} from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 
@@ -323,10 +323,26 @@ const updateUserAvatar = asyncHandler (async(req,res)=>{
         throw new ApiError(400,"avatar file is missing")
     }
 
+    const existingUser = await User.findById(req.user?._id);
+
     const avatar = await uploadOnCloudinary(avatarLocalPath)
 
     if (!avatar.url) {
         throw new ApiError(400,"Error while uploading avatar")
+    }
+
+     if (existingUser?.avatar) {
+        const warning = null;
+        try {
+            const publicId = existingUser.avatar
+                .split("/")        // break URL
+                .pop()             // get last part
+                .split(".")[0];    // remove extension
+
+            await deleteFromCloudinary(publicId);
+        } catch (error) {
+             warning = "Old avatar could not be deleted";
+        }
     }
 
     const user = await User.findByIdAndUpdate(
@@ -344,12 +360,14 @@ const updateUserAvatar = asyncHandler (async(req,res)=>{
     .json(new ApiResponse(200, user, "Avatar updated succesfully"))
 })
 
-const updateUserCoverImage = asyncHandler(async(req,res)=>{
+const updateUserCoverImage = asyncHandler (async(req,res)=> {
     const coverimageLocalpath = req.file?.path
 
     if (!coverimageLocalpath) {
         throw new ApiError(400, "CoverImage missing")
     }
+
+    const existingUser = await User.findById(req.user?._id);
 
     const coverimage = await uploadOnCloudinary(coverimageLocalpath)
 
@@ -357,12 +375,25 @@ const updateUserCoverImage = asyncHandler(async(req,res)=>{
         throw new ApiError(400, "Error while updating coverimage")
     }
 
+    if (existingUser?.coverimage) {
+        const warning = null;
+        try {
+            const publicId = existingUser.coverimage
+                .split("/")        // break URL
+                .pop()             // get last part
+                .split(".")[0];    // remove extension
+            await deleteFromCloudinary(publicId);
+        } catch (error) {
+            warning = "Old coverimage could not be deleted";
+    }
+}
+
     const user = await User.findByIdAndUpdate(
         req.User?._id,
         {
             $set:{
                 coverimage : coverimage.url
-            }
+            },
         },
         {new:true}
     ).select("-password")
@@ -371,9 +402,6 @@ const updateUserCoverImage = asyncHandler(async(req,res)=>{
     .status(200)
     .json(200, user,"Coverimage updated succesfully")
 })
-
-
-
 
 
 export {
@@ -386,5 +414,4 @@ export {
     updateAccountDetails,
     updateUserAvatar,
     updateUserCoverImage
-
 }

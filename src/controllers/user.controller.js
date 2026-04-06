@@ -470,7 +470,7 @@ const getUserChannelProfile  = asyncHandler (async (req,res)=>{
 
     console.log("channel information",channel);
 
-    return res.status
+    return res
     .status(200)
     .json(
         new ApiResponse(200,channel[0], "User channel fetched succesfully")

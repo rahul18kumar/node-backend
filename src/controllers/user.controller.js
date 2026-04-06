@@ -403,6 +403,138 @@ const updateUserCoverImage = asyncHandler (async(req,res)=> {
     .json(200, user,"Coverimage updated succesfully")
 })
 
+const getUserChannelProfile  = asyncHandler (async (req,res)=>{
+    const {username}= req.params
+
+    if (!username?.trim()) {
+        throw new ApiError(400,"Username is missing")
+    }
+
+    const channel = await User.aggregate([
+        {
+            $match:{
+                username : username?.toLowerCase()
+            }
+        },
+        {
+            $lookup:{       //Get all subscribers of this User
+                from: "subscriptions",  // collection to join
+                localField: "_id",         // current user id
+                foreignField:"channel",     // field in subscriptions
+                as: "subscribers"               // output array (followers)
+            }
+        },
+        {
+            $lookup:{       //Get all channels this user subscribed to
+                from:"subscriptions",      // collection to join    
+                localField:"_id",          // current user id
+                foreignField:"subscriber",  // field in subscriptions
+                as:"subscribedTo"            // output array (following)
+            }
+        },
+        {
+            $addFields:{
+                subscribersCount :{
+                    $size:"$subscribers"                
+                },
+                channelSuubscriberToCount :{
+                    $size:"$subscribedTo"
+                },
+                isSubscribed:{
+                    $cond:{
+                        if:{$in:[req.user?._id, "$subscribers.subscriber"]},
+                        then: true,
+                        else:false
+                    }
+                }
+            }
+
+        },
+        {
+            $project :{
+                avatar:1,
+                coverImage:1,
+                fullName: 1,
+                username: 1,
+                subscribersCount: 1,
+                channelSuubscriberToCount: 1,
+                isSubscribed: 1
+            }
+        },
+    
+    ])
+
+    if (!channel?.length) {
+        throw new ApiError(404,"channel doesn't exist")
+    }
+
+    console.log("channel information",channel);
+
+    return res.status
+    .status(200)
+    .json(
+        new ApiResponse(200,channel[0], "User channel fetched succesfully")
+    )
+
+})
+
+const getWatchHistory = asyncHandler(async(req,res)=>{
+    const user = await User.aggregate([
+        {
+            $match:{
+                _id: new mongoose.Types.ObjectId(req.user.__id)
+            }
+        },
+        {
+            $lookup:{
+                from :"videos",
+                localField:"watchHistory",
+                foreignField:"_id",
+                as:"watchHistoryVideos",
+                pipeline :[
+                    {
+                        $lookup:{
+                            form :"users",
+                            localField:"owner",
+                            foreignField:"_id",
+                            as :"owner",
+                            pipeline:[
+                                {
+                                    $project: {
+                                        fullName:1,
+                                        username:1,
+                                        avatar:1
+
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields:{
+                            owner:{
+                                $first: "$owner"
+                            }
+                        }
+                    }
+                ]
+
+            }
+        }
+    ])
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            user[0].watchHistory,
+            "watch history  fetched succesfully"
+        )
+    )
+})
+
+
 
 export {
     registerUser,
@@ -413,5 +545,7 @@ export {
     getCurrentUser,
     updateAccountDetails,
     updateUserAvatar,
-    updateUserCoverImage
+    updateUserCoverImage,
+    getUserChannelProfile,
+    getWatchHistory
 }
